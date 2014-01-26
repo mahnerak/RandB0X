@@ -1,4 +1,4 @@
-#define COPYRIGHT                                                             L"\
+#define COPYRIGHT                                                              L"\
                                                                                \n\
             ██████   █████  ███    ██ ██████  ██████   █████  ██   ██          \n\
             ██   ██ ██   ██ ████   ██ ██   ██ ██   ██ ██   ██  ██ ██           \n\
@@ -164,20 +164,6 @@ int wmain(int argc, wchar_t* argv[]){
 		return errorCode;
 	}
 	
-	/*
-	JOBOBJECT_SECURITY_LIMIT_INFORMATION secLimit = {0};
-	secLimit.SecurityLimitFlags = 
-		JOB_OBJECT_SECURITY_NO_ADMIN | 
-		JOB_OBJECT_SECURITY_ONLY_TOKEN ;
-
-	secLimit.JobToken = hToken;
-
-	if(!SetInformationJobObject(job, JobObjectSecurityLimitInformation, &secLimit, sizeof(secLimit))){
-		int errorCode = GetLastError();
-		printf("RandB0X internal error. Can't SetInformationJobObject (Error L3 code: %d)\n", errorCode);
-		return errorCode;
-	}
-	*/
 	PROCESS_INFORMATION pInfo;
 	STARTUPINFOW pStaus = {sizeof(STARTUPINFOW)};
 	pStaus.dwFlags = 
@@ -188,8 +174,8 @@ int wmain(int argc, wchar_t* argv[]){
 	pStaus.hStdInput = CreateFileW(inputFilePath, GENERIC_READ, 0, &sa, OPEN_ALWAYS, 0, NULL);
 	pStaus.hStdOutput = CreateFileW(outputFilePath, GENERIC_WRITE, 0, &sa, CREATE_ALWAYS, 0, NULL);
 	pStaus.wShowWindow = SW_HIDE;
-	//if(!CreateProcessWithLogonW(username, NULL, password, LOGON_WITH_PROFILE, executablePath, NULL, CREATE_SUSPENDED, NULL, NULL, &pStaus ,&pInfo)){
-	if(!CreateProcessAsUserW/*AsUser(hToken,*/(hToken, executablePath, NULL, NULL, NULL, TRUE, CREATE_SUSPENDED, NULL, NULL, &pStaus , &pInfo)){
+	
+	if(!CreateProcessAsUserW(hToken, executablePath, NULL, NULL, NULL, TRUE, CREATE_SUSPENDED, NULL, NULL, &pStaus , &pInfo)){
 		int errorCode = GetLastError();
 		printf("RandB0X internal error. Can't CreateProcessWithLogonW (Error code: %d)\n", errorCode);
 		return errorCode;
