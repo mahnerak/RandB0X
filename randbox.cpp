@@ -5,7 +5,7 @@
 #include <locale.h>
 
 #define UNICODE
-#define boolToString(x) ((x)?(L"false"):(L"true"))
+#define boolToString(x) ((x)?(L"true"):(L"false"))
 
 #define COPYRIGHT                                                              L"\
                                                                                \n\
@@ -166,7 +166,7 @@ INT wmain(INT argc, LPWSTR argv[]){
 		return (0);
 	}
 
-	PROCESS_INFORMATION pInfo;
+	PROCESS_INFORMATION processInfo;
 	STARTUPINFOW pStaus = { sizeof(STARTUPINFOW) };
 	pStaus.dwFlags =
 		STARTF_USESTDHANDLES|
@@ -175,7 +175,7 @@ INT wmain(INT argc, LPWSTR argv[]){
 	pStaus.hStdOutput = CreateFileW(outputFilePath, GENERIC_WRITE, 0, &sa, CREATE_ALWAYS, 0, NULL);
 	pStaus.wShowWindow = SW_HIDE;
 
-	if (!CreateProcessAsUserW(hToken, executablePath, NULL, NULL, NULL, TRUE, CREATE_SUSPENDED, NULL, NULL, &pStaus, &pInfo)){
+	if (!CreateProcessAsUserW(hToken, executablePath, NULL, NULL, NULL, TRUE, CREATE_SUSPENDED, NULL, NULL, &pStaus, &processInfo)){
 		INT errorCode = GetLastError();
 		wprintf(L"{"
 			L"err: \"RIE\","
@@ -184,8 +184,8 @@ INT wmain(INT argc, LPWSTR argv[]){
 		return (0);
 	}
 
-	if (!AssignProcessToJobObject(job, pInfo.hProcess)){
-		TerminateProcess(pInfo.hProcess, 0);
+	if (!AssignProcessToJobObject(job, processInfo.hProcess)){
+		TerminateProcess(processInfo.hProcess, 0);
 		INT errorCode = GetLastError();
 		wprintf(L"{"
 			L"err: \"RIE\","
@@ -196,12 +196,13 @@ INT wmain(INT argc, LPWSTR argv[]){
 
 	LONGLONG startTime = GetTickCount64();
 
-	ResumeThread(pInfo.hThread);
+	//SetPriorityClass(processInfo.hProcess, HIGH_PRIORITY_CLASS);
+	ResumeThread(processInfo.hThread);
 	JOBOBJECT_BASIC_ACCOUNTING_INFORMATION basicAcctInfo;
 	JOBOBJECT_EXTENDED_LIMIT_INFORMATION extLimitInfo;
 
 
-	INT waitCode = WaitForSingleObject(pInfo.hProcess, 4 * timeLimit);
+	INT waitCode = WaitForSingleObject(processInfo.hProcess, 4 * timeLimit);
 
 	if (waitCode == WAIT_FAILED) {
 		INT errorCode = GetLastError();
@@ -218,7 +219,7 @@ INT wmain(INT argc, LPWSTR argv[]){
 			}
 		}
 		else {
-			if (!TerminateProcess(pInfo.hProcess, 255)) {
+			if (!TerminateProcess(processInfo.hProcess, 255)) {
 			}
 		}
 	}
@@ -227,7 +228,7 @@ INT wmain(INT argc, LPWSTR argv[]){
 	LONGLONG finishTime = GetTickCount64();
 		
 	INT exitCode;
-	if (!GetExitCodeProcess(pInfo.hProcess, (DWORD*)&exitCode)){
+	if (!GetExitCodeProcess(processInfo.hProcess, (DWORD*)&exitCode)){
 		INT errorCode = GetLastError();
 		wprintf(L"{"
 			L"err: \"RIE\","
@@ -272,22 +273,22 @@ INT wmain(INT argc, LPWSTR argv[]){
 	BOOL memoryLimitExceeded = usedMemory > memoryLimit;
 	BOOL signaled = (exitCode & 0xC0000000) == 0xC0000000;
 
-	wprintf(L"{"
-		L"err: null,"
-		L"message: \"Successful run\","
-		L"waitCode: %d,"
-		L"exitCode: %d,"
-		L"errorCode: %d,"
-		L"userTime: %I64d,"
-		L"realTime: %I64d,"
-		L"activeProcesses: %d,"
-		L"usedMemory: %I64d,"
-		L"cpuTimeLimitExceeded: %s,"
-		L"realTimeLimitExceeded: %s,"
-		L"timeLimitExceeded: %s,"
-		L"memoryLimitExceeded: %s,"
-		L"signaled: %s"
-	L"}", 
+	wprintf(L"{\n"
+		L"err: null,\n"
+		L"message: \"Successful run\",\n"
+		L"waitCode: %d,\n"
+		L"exitCode: %d,\n"
+		L"errorCode: %d,\n"
+		L"userTime: %I64d,\n"
+		L"realTime: %I64d,\n"
+		L"activeProcesses: %d,\n"
+		L"usedMemory: %I64d,\n"
+		L"cpuTimeLimitExceeded: %s,\n"
+		L"realTimeLimitExceeded: %s,\n"
+		L"timeLimitExceeded: %s,\n"
+		L"memoryLimitExceeded: %s,\n"
+		L"signaled: %s\n"
+	L"}\n", 
 		waitCode, exitCode, errorCode, userTime, realTime, activeProcesses, usedMemory, 
 		boolToString(cpuTimeLimitExceeded),
 		boolToString(realTimeLimitExceeded),
@@ -299,8 +300,8 @@ INT wmain(INT argc, LPWSTR argv[]){
 	CloseHandle(pStaus.hStdInput);
 	CloseHandle(pStaus.hStdOutput);
 	CloseHandle(pStaus.hStdError);
-	CloseHandle(pInfo.hThread);
-	CloseHandle(pInfo.hProcess);
+	CloseHandle(processInfo.hThread);
+	CloseHandle(processInfo.hProcess);
 	TerminateJobObject(job, 0);
 	CloseHandle(job);
 	return 0;
