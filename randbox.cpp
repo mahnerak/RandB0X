@@ -1,3 +1,12 @@
+#include <windows.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <locale.h>
+
+#define UNICODE
+#define boolToString(x) ((x)?(L"false"):(L"true"))
+
 #define COPYRIGHT                                                              L"\
                                                                                \n\
             ██████   █████  ███    ██ ██████  ██████   █████  ██   ██          \n\
@@ -9,27 +18,26 @@
                 Copyright (c) Karen Hambardzumyan (Mahnerak) 2014              \n\
  ______________________________________________________________________________\n\
 \n"
-#include <stdio.h>
-#include <stdlib.h>
-#include <windows.h>
-#include <boost\filesystem.hpp>
 
-const LONG minTimeLimit	= 20;
-const LONG defaultTimeLimit = 1000;
-const LONG maxTimeLimit = 20000;
 
-const SIZE_T minMemoryLimit = 20;
-const SIZE_T defaultMemoryLimit	= 64;
-const SIZE_T maxMemoryLimit	= 2048;
+#define minTimeLimit ((LONG)(20))
+#define defaultTimeLimit ((LONG)(1000))
+#define maxTimeLimit ((LONG)(20000))
 
-const LPCWSTR username = L"randb0x";
-const LPCWSTR password = L"randb0x";
+#define minMemoryLimit ((SIZE_T)(20))
+#define defaultMemoryLimit ((SIZE_T)(64))
+#define maxMemoryLimit ((SIZE_T)(2048))
 
-int wmain(int argc, wchar_t* argv[]){
+#define username L"randb0x"
+#define password L"randb0x"
+
+
+
+INT wmain(INT argc, LPWSTR argv[]){
 	// Command line usage:
 	// randbox <executable> <inputFilePath> <outputFilePath> [timeLimit] [memoryLimit]
-	if(argc < 4){
-		char* l = setlocale(LC_ALL, "");
+	if (argc < 4){
+		setlocale(0, LC_ALL);
 		wprintf(
 			COPYRIGHT
 			L"  RandB0X for Windows, v0.1\n"
@@ -48,55 +56,41 @@ int wmain(int argc, wchar_t* argv[]){
 		);
 		return (101);
 	}
-	//input
-	//executable
+
 	LPWSTR executablePath = argv[1];
-	if(!boost::filesystem::is_regular_file(executablePath)){
-		printf("Invalid executable file.\n");
-		return (102);
-	}
-	
-	//input file
 	LPWSTR inputFilePath = argv[2];
-	if(!boost::filesystem::is_regular_file(inputFilePath)){
-		printf("Invalid input file.\n");
-		return (103);
-	}
-
-	//output file
 	LPWSTR outputFilePath = argv[3];
-	if(!boost::filesystem::is_regular_file(outputFilePath)){
-		printf("Invalid output file.\n");
-		return (104);
-	}
-
-	//time limit
 	LONG timeLimit;
-	if(argc > 4){
-		swscanf(argv[4], L"%ld", &timeLimit);
-		if(timeLimit < minTimeLimit || timeLimit > maxTimeLimit){
-			printf("Invalid time limit.\n");
-			return(105);
+
+	if (argc > 4){
+		swscanf_s(argv[4], L"%ld", &timeLimit);
+		if (timeLimit < minTimeLimit || timeLimit > maxTimeLimit){
+			wprintf(L"{"
+				L"err: \"RIE\","
+				L"message: \"Invalid time limit value\""
+			L"}");
+			return(0);
 		}
 	}
 	else{
 		timeLimit = defaultTimeLimit;
 	}
-	timeLimit *= 10000;
 
-	//memory limit
 	SIZE_T memoryLimit;
-	if(argc > 5){
-		swscanf(argv[5], L"%Id", &memoryLimit);
-		if(memoryLimit < minMemoryLimit || memoryLimit > maxMemoryLimit){
-			printf("Invalid memory limit.\n");
-			return(106);
+	if (argc > 5){
+		swscanf_s(argv[5], L"%Id", &memoryLimit);
+		if (memoryLimit < minMemoryLimit || memoryLimit > maxMemoryLimit){
+			wprintf(L"{"
+				L"err: \"RIE\","
+				L"message: \"Invalid memory limit value\""
+			L"}");
+			return(0);
 		}
 	}
 	else{
 		memoryLimit = defaultMemoryLimit;
 	}
-	memoryLimit *= 1024 * 1024;
+	memoryLimit *= 1 << 20;
 
 	SECURITY_ATTRIBUTES sa = {
 		sizeof(SECURITY_ATTRIBUTES),
@@ -104,108 +98,210 @@ int wmain(int argc, wchar_t* argv[]){
 		TRUE
 	};
 
-	HANDLE job = CreateJobObject(NULL,NULL);
+	HANDLE job = CreateJobObject(NULL, NULL);
 
-	if(!job){
-		int errorCode = GetLastError();
-		printf("RandB0X internal error. Can't CreateJobObject (Error code: %d)\n", errorCode);
-		return (107);
+	if (!job){
+		INT errorCode = GetLastError();
+		wprintf(L"{"
+			L"err: \"RIE\","
+			L"message: \"Can't CreateJobObject (Error code: %d)\""
+		L"}", errorCode);
+		return (0);
 	}
-	
-	// Time and Memory Limits
+
 
 	JOBOBJECT_EXTENDED_LIMIT_INFORMATION extLimit = {0};
-
-	extLimit.BasicLimitInformation.LimitFlags = 
-		JOB_OBJECT_LIMIT_PROCESS_MEMORY | 
-		JOB_OBJECT_LIMIT_PROCESS_TIME | 
-		JOB_OBJECT_LIMIT_JOB_TIME | 
-		JOB_OBJECT_LIMIT_ACTIVE_PROCESS | 
+	extLimit.BasicLimitInformation.LimitFlags =
+		JOB_OBJECT_LIMIT_JOB_TIME	|
+		JOB_OBJECT_LIMIT_PROCESS_TIME |
+		//JOB_OBJECT_LIMIT_JOB_MEMORY | 
+		//JOB_OBJECT_LIMIT_PROCESS_MEMORY |
+		JOB_OBJECT_LIMIT_ACTIVE_PROCESS	  |
 		JOB_OBJECT_LIMIT_DIE_ON_UNHANDLED_EXCEPTION;
 
 	extLimit.BasicLimitInformation.ActiveProcessLimit = 1;
 
-	extLimit.BasicLimitInformation.PerJobUserTimeLimit.QuadPart = timeLimit;
-	extLimit.BasicLimitInformation.PerProcessUserTimeLimit.QuadPart = timeLimit;
+	extLimit.BasicLimitInformation.PerJobUserTimeLimit.QuadPart = timeLimit * 10000;
+	extLimit.BasicLimitInformation.PerProcessUserTimeLimit.QuadPart = timeLimit * 10000;
 
 	extLimit.JobMemoryLimit = memoryLimit;
 	extLimit.ProcessMemoryLimit = memoryLimit;
 
-	if(!SetInformationJobObject(job, JobObjectExtendedLimitInformation, &extLimit, sizeof(extLimit))){
-		int errorCode = GetLastError();
-		printf("RandB0X internal error. Can't SetInformationJobObject (Error L1 code: %d)\n", errorCode);
-		return errorCode;
+	if (!SetInformationJobObject(job, JobObjectExtendedLimitInformation, &extLimit, sizeof(extLimit))){
+		INT errorCode = GetLastError();
+		wprintf(L"{"
+			L"err: \"RIE\","
+			L"message: \"Can't SetInformationJobObject (Error code: %d)\""
+		L"}", errorCode);
+		return (0);
 	}
 
-	JOBOBJECT_BASIC_UI_RESTRICTIONS uiLimit = {0};
-	uiLimit.UIRestrictionsClass = 
+	JOBOBJECT_BASIC_UI_RESTRICTIONS uiLimit = { 0 };
+	uiLimit.UIRestrictionsClass =
 		JOB_OBJECT_UILIMIT_DESKTOP   |
 		JOB_OBJECT_UILIMIT_HANDLES    |
 		JOB_OBJECT_UILIMIT_GLOBALATOMS |
-		JOB_OBJECT_UILIMIT_EXITWINDOWS  | 
-		JOB_OBJECT_UILIMIT_READCLIPBOARD | 
-		JOB_OBJECT_UILIMIT_WRITECLIPBOARD | 
-		JOB_OBJECT_UILIMIT_DISPLAYSETTINGS | 
-		JOB_OBJECT_UILIMIT_SYSTEMPARAMETERS ;
-
-	if(!SetInformationJobObject(job, JobObjectBasicUIRestrictions, &uiLimit, sizeof(uiLimit))){
-		int errorCode = GetLastError();
-		printf("RandB0X internal error. Can't SetInformationJobObject (Error L2 code: %d)\n", errorCode);
-		return errorCode;
+		JOB_OBJECT_UILIMIT_EXITWINDOWS  |
+		JOB_OBJECT_UILIMIT_READCLIPBOARD |
+		JOB_OBJECT_UILIMIT_WRITECLIPBOARD |
+		JOB_OBJECT_UILIMIT_DISPLAYSETTINGS |
+		JOB_OBJECT_UILIMIT_SYSTEMPARAMETERS;
+	
+	if (!SetInformationJobObject(job, JobObjectBasicUIRestrictions, &uiLimit, sizeof(uiLimit))){
+		INT errorCode = GetLastError();
+		wprintf(L"{"
+			L"err: \"RIE\","
+			L"message: \"Can't SetInformationJobObject (Error code: %d)\""
+		L"}", errorCode);
+		return (0);
 	}
 
-	
-	//Security Limit
-	
 	HANDLE hToken;
-	if(!LogonUser("randb0x", NULL, "randb0x", LOGON32_LOGON_INTERACTIVE, LOGON32_PROVIDER_DEFAULT, &hToken)){
-		int errorCode = GetLastError();
-		printf("RandB0X internal error. Can't LogonUser (Error code: %d)\n", errorCode);
-		return errorCode;
+	if (!LogonUserW(username, NULL, password, LOGON32_LOGON_INTERACTIVE, LOGON32_PROVIDER_DEFAULT, &hToken)){
+		INT errorCode = GetLastError();
+		wprintf(L"{"
+			L"err: \"RIE\","
+			L"message: \"Can't LogonUserW (Error code: %d)\""
+		L"}", errorCode);
+		return (0);
 	}
-	
+
 	PROCESS_INFORMATION pInfo;
-	STARTUPINFOW pStaus = {sizeof(STARTUPINFOW)};
-	pStaus.dwFlags = 
-
-		STARTF_USESTDHANDLES | 
-		STARTF_USESHOWWINDOW ;
-
+	STARTUPINFOW pStaus = { sizeof(STARTUPINFOW) };
+	pStaus.dwFlags =
+		STARTF_USESTDHANDLES|
+		STARTF_USESHOWWINDOW;
 	pStaus.hStdInput = CreateFileW(inputFilePath, GENERIC_READ, 0, &sa, OPEN_ALWAYS, 0, NULL);
 	pStaus.hStdOutput = CreateFileW(outputFilePath, GENERIC_WRITE, 0, &sa, CREATE_ALWAYS, 0, NULL);
 	pStaus.wShowWindow = SW_HIDE;
-	
-	if(!CreateProcessAsUserW(hToken, executablePath, NULL, NULL, NULL, TRUE, CREATE_SUSPENDED, NULL, NULL, &pStaus , &pInfo)){
-		int errorCode = GetLastError();
-		printf("RandB0X internal error. Can't CreateProcessWithLogonW (Error code: %d)\n", errorCode);
-		return errorCode;
+
+	if (!CreateProcessAsUserW(hToken, executablePath, NULL, NULL, NULL, TRUE, CREATE_SUSPENDED, NULL, NULL, &pStaus, &pInfo)){
+		INT errorCode = GetLastError();
+		wprintf(L"{"
+			L"err: \"RIE\","
+			L"message: \"Can't CreateProcessAsUserW (Error code: %d)\""
+		L"}", errorCode);
+		return (0);
 	}
 
-	if(!AssignProcessToJobObject(job, pInfo.hProcess)){
-		TerminateProcess(pInfo.hProcess,0);
-		int errorCode = GetLastError();
-		printf("RandB0X internal error. Can't AssignProcessToJobObject (Error code: %d)\n", errorCode);
-		return errorCode;
+	if (!AssignProcessToJobObject(job, pInfo.hProcess)){
+		TerminateProcess(pInfo.hProcess, 0);
+		INT errorCode = GetLastError();
+		wprintf(L"{"
+			L"err: \"RIE\","
+			L"message: \"Can't AssignProcessToJobObject (Error code: %d)\""
+			L"}", errorCode);
+		return (0);
 	}
-	
+
+	LONGLONG startTime = GetTickCount64();
+
 	ResumeThread(pInfo.hThread);
+	JOBOBJECT_BASIC_ACCOUNTING_INFORMATION basicAcctInfo;
+	JOBOBJECT_EXTENDED_LIMIT_INFORMATION extLimitInfo;
 
-	DWORD waitStatus = WaitForSingleObject(pInfo.hProcess, INFINITE);
-	if(waitStatus == WAIT_FAILED){
-		int errorCode = GetLastError();
-		printf("RandB0X internal error. Can't WaitForSingleObject (Error code: %d)\n", errorCode);
-		return errorCode;
-	}else{
-		printf("waitStatus: %d\n", waitStatus);
+
+	INT waitCode = WaitForSingleObject(pInfo.hProcess, 4 * timeLimit);
+
+	if (waitCode == WAIT_FAILED) {
+		INT errorCode = GetLastError();
+		wprintf(L"{"
+			L"err: \"RIE\","
+			L"message: \"Can't WaitForSingleObject (Error code: %d)\""
+		L"}", errorCode);
+		return (0);
 	}
 
+	if (waitCode == WAIT_TIMEOUT) {
+		if (job != INVALID_HANDLE_VALUE) {
+			if (!TerminateJobObject(job, 255)) {
+			}
+		}
+		else {
+			if (!TerminateProcess(pInfo.hProcess, 255)) {
+			}
+		}
+	}
+		
 
+	LONGLONG finishTime = GetTickCount64();
+		
+	INT exitCode;
+	if (!GetExitCodeProcess(pInfo.hProcess, (DWORD*)&exitCode)){
+		INT errorCode = GetLastError();
+		wprintf(L"{"
+			L"err: \"RIE\","
+			L"message: \"Can't GetExitCodeProcess (Error code: %d)\""
+			L"}", errorCode);
+		return (0);
+	}
+		
+	if (job == INVALID_HANDLE_VALUE) {
+		INT errorCode = GetLastError();
+		wprintf(L"{"
+			L"err: \"RIE\","
+			L"message: \"Invalid Handle Value (Error code: %d)\""
+			L"}", errorCode);
+		return (0);
+	}
+	if (!QueryInformationJobObject(job, JobObjectBasicAccountingInformation, &basicAcctInfo, sizeof(basicAcctInfo), NULL)) {
+		INT errorCode = GetLastError();
+		wprintf(L"{"
+			L"err: \"RIE\","
+			L"message: \"Can't QueryInformationJobObject (Error code: %d)\""
+			L"}", errorCode);
+		return (0);
+	}
+	if (!QueryInformationJobObject(job, JobObjectExtendedLimitInformation, &extLimitInfo, sizeof(extLimitInfo), NULL)) {
+		INT errorCode = GetLastError();
+		wprintf(L"{"
+			L"err: \"RIE\","
+			L"message: \"Can't QueryInformationJobObject (Error code: %d)\""
+			L"}", errorCode);
+		return (0);
+	}
+
+	INT errorCode = GetLastError();
+	LONGLONG userTime = (basicAcctInfo.TotalKernelTime.QuadPart + basicAcctInfo.TotalUserTime.QuadPart) / 10000;
+	LONGLONG realTime = finishTime - startTime;
+	INT activeProcesses = basicAcctInfo.ActiveProcesses;
+	LONGLONG usedMemory = extLimitInfo.PeakJobMemoryUsed;
+	BOOL cpuTimeLimitExceeded = userTime > timeLimit;
+	BOOL realTimeLimitExceeded = waitCode == WAIT_TIMEOUT;
+	BOOL timeLimitExceeded = cpuTimeLimitExceeded || realTimeLimitExceeded;
+	BOOL memoryLimitExceeded = usedMemory > memoryLimit;
+	BOOL signaled = (exitCode & 0xC0000000) == 0xC0000000;
+
+	wprintf(L"{"
+		L"err: null,"
+		L"message: \"Successful run\","
+		L"waitCode: %d,"
+		L"exitCode: %d,"
+		L"errorCode: %d,"
+		L"userTime: %I64d,"
+		L"realTime: %I64d,"
+		L"activeProcesses: %d,"
+		L"usedMemory: %I64d,"
+		L"cpuTimeLimitExceeded: %s,"
+		L"realTimeLimitExceeded: %s,"
+		L"timeLimitExceeded: %s,"
+		L"memoryLimitExceeded: %s,"
+		L"signaled: %s"
+	L"}", 
+		waitCode, exitCode, errorCode, userTime, realTime, activeProcesses, usedMemory, 
+		boolToString(cpuTimeLimitExceeded),
+		boolToString(realTimeLimitExceeded),
+		boolToString(timeLimitExceeded),
+		boolToString(memoryLimitExceeded),
+		boolToString(signaled)
+	);
+		
 	CloseHandle(pStaus.hStdInput);
 	CloseHandle(pStaus.hStdOutput);
 	CloseHandle(pStaus.hStdError);
 	CloseHandle(pInfo.hThread);
 	CloseHandle(pInfo.hProcess);
-	TerminateJobObject(job,0);
+	TerminateJobObject(job, 0);
 	CloseHandle(job);
-    return 0;  
+	return 0;
 }
