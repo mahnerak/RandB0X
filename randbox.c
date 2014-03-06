@@ -24,7 +24,7 @@
     ________________________________________________________________________\n"
 
 // Usage information is visible on start page
-#define USAGE												              L"\n\
+#define USAGE                                                             L"\n\
     RandB0X for Windows, v0.1                                               \n\
     randb0x executable stdin stdout [timeLimit[memoryLimit[processes]]]     \n\
                                                                             \n\
@@ -126,7 +126,8 @@ struct STATUS {
 };
 
 // Get information about signal and status by exit code
-void lookupSignal(DWORD exitCode, BOOL* signaled, LPWSTR* signal, LPWSTR* status, BOOL* timeLimitExceeded, BOOL* memoryLimitExceeded){
+void lookupSignal(DWORD exitCode, BOOL* signaled, LPWSTR* signal,
+	LPWSTR* status, BOOL* timeLimitExceeded, BOOL* memoryLimitExceeded){
 	// Is process signaled
 	*signaled = (exitCode & 0xF0000000) == 0xC0000000;
 	
@@ -274,7 +275,8 @@ INT wmain(INT argc, LPWSTR argv[]){
 		// Reading active processes limit
 		swscanf_s(argv[6], L"%lu", &activeProcessesLimit);
 		// Checking if given limit is valid
-		if (activeProcessesLimit < MIN_ACTIVE_PROCESSES_LIMIT || activeProcessesLimit > MAX_ACTIVE_PROCESSES_LIMIT){
+		if (activeProcessesLimit < MIN_ACTIVE_PROCESSES_LIMIT || 
+			activeProcessesLimit > MAX_ACTIVE_PROCESSES_LIMIT){
 			// Reporting error
 			wprintf(L"{"
 				L"\"err\": \"RIE\","
@@ -407,7 +409,8 @@ INT wmain(INT argc, LPWSTR argv[]){
 	pStaus.wShowWindow = SW_HIDE;
 
 	// Trying to create a process with user
-	if (!CreateProcessAsUserW(hToken, executablePath, NULL, NULL, NULL, TRUE, CREATE_SUSPENDED, NULL, NULL, &pStaus, &processInfo)){
+	if (!CreateProcessAsUserW(hToken, executablePath, NULL, NULL, NULL, 
+		TRUE, CREATE_SUSPENDED, NULL, NULL, &pStaus, &processInfo)){
 		// Get last error
 		INT errorCode = GetLastError();
 		// And report
@@ -520,7 +523,8 @@ INT wmain(INT argc, LPWSTR argv[]){
 	}
 
 	// Try to get info about basic accounting
-	if (!QueryInformationJobObject(job, JobObjectBasicAccountingInformation, &basicAcctInfo, sizeof(basicAcctInfo), NULL)) {
+	if (!QueryInformationJobObject(job, JobObjectBasicAccountingInformation, 
+		&basicAcctInfo, sizeof(basicAcctInfo), NULL)) {
 		// Get last error
 		INT errorCode = GetLastError();
 		// And report
@@ -533,7 +537,8 @@ INT wmain(INT argc, LPWSTR argv[]){
 	}
 
 	// Try to get info about extended limit
-	if (!QueryInformationJobObject(job, JobObjectExtendedLimitInformation, &extLimitInfo, sizeof(extLimitInfo), NULL)) {
+	if (!QueryInformationJobObject(job, JobObjectExtendedLimitInformation,
+		&extLimitInfo, sizeof(extLimitInfo), NULL)) {
 		// Get last error
 		INT errorCode = GetLastError();
 		// And report
